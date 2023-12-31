@@ -1,6 +1,6 @@
 
 # ABOUT
- This repository contains bare-metal firmware for a Cortex-M4 STM32 microcontroller (STM32F446RE in my case), using open source tools and libraries such as GCC for ARM and libopencm3. The project purpuse is to build a bootloader for performing firmware updates over UART/USB.
+ This repository contains bare-metal firmware for a Cortex-M4 STM32 microcontroller (STM32F446RE in my case), using open source tools and libraries such as GCC for ARM and STM HAL. The project purpuse is to build a bootloader for performing firmware updates over UART/USB.
 
 # Repo setup 
 ### Clone the repo
