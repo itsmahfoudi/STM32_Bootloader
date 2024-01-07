@@ -2,6 +2,7 @@
 
 BUILD_DIR := build
 BUILD_TYPE ?= Debug
+FILE_BIN = NUCLEOF4_BOOTLOADER.bin
 
 all: build
 
@@ -22,6 +23,9 @@ format: $(addsuffix .format,${SRCS})
 
 %.format: %
 	clang-format -i $<
+
+flash: build
+	st-flash write $(BUILD_DIR)/$(FILE_BIN) 0x8000000
 
 clean:
 	rm -rf $(BUILD_DIR)
