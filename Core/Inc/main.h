@@ -28,6 +28,13 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_def.h"
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stm32f4xx_hal_crc.h>
+#include <stm32f4xx_hal_uart.h>
+#include <string.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -45,14 +52,15 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+#define FLASH_SECTOR2_BASE_ADDRESS 0x08008000U
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void bootloader_jump_to_user_app(void);
+void bootloader_uart_read_data(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

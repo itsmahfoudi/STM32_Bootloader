@@ -1,12 +1,16 @@
 #include "main.h"
+#include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_gpio.h"
 #include <stdint.h>
-#include <stm32f4xx_hal_crc.h>
-#include <stm32f4xx_hal_uart.h>
+
 /* Private variables *********************************************/
 CRC_HandleTypeDef hcrc;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+
+#define D_UART &huart3
+#define C_UART &huart2
 
 char dataToSend[] = "Hello from STM32 nucleo board.\r\n";
 /* USER CODE BEGIN PV*/
@@ -19,7 +23,7 @@ static void MX_GPIO_Init(void);
 static void MX_CRC_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
-
+static void printmsg(char *format, ...);
 /* USER CODE BEGIN PFP*/
 
 /* USER CODE END PFP */
@@ -58,24 +62,63 @@ int main(void) {
   MX_CRC_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
-  /* USER CODE END Init */
 
-  /* USER CODE BEGIN 2 */
-  /* USER CODE END 2 */
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1) {
-    /* USER CODE END WHILE */
-    HAL_UART_Transmit(&huart2, (uint8_t *)dataToSend, sizeof(dataToSend),
-                      HAL_MAX_DELAY);
-    HAL_UART_Transmit(&huart3, (uint8_t *)dataToSend, sizeof(dataToSend),
-                      HAL_MAX_DELAY);
-    HAL_Delay(1000);
-    /* USER CODE BEGIN 3 */
+  if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET) {
+    printmsg("BL_DEBUG_MSG: Button is pressed... Jumping to BL mode.\n");
+    bootloader_uart_read_data();
+  } else {
+    printmsg("BL_DEBUG_MSG: Button is not pressed... Jumping to User app.\n");
+    bootloader_jump_to_user_app();
   }
-  /* USER CODE END 3 */
+
   return 0;
 }
+
+/**
+ * @brief Simple printf implementation
+ * @retval None
+ */
+static void printmsg(char *format, ...) {
+  char str[100];
+  va_list args;
+  va_start(args, format);
+  vsprintf(str, format, args);
+  HAL_UART_Transmit(D_UART, (uint8_t *)str, strlen(str), HAL_MAX_DELAY);
+  va_end(args);
+}
+
+/**
+ * @brief Function to jump to the 3 section of the flash where the user app
+ * should exist.
+ * @retval None
+ */
+void bootloader_jump_to_user_app(void) {
+  // function pointer to hold the address of the reset handler of the user app.
+  void (*app_reset_handler)(void);
+  printmsg("BL_DEBUG_MSG: bootloader_jump_to_user_app\n");
+
+  // 1. Configure the MSP
+  uint32_t msp_value = *(volatile uint32_t *)FLASH_SECTOR2_BASE_ADDRESS;
+  printmsg("BL_DEBUG_MSG: MSP value : %#x\n", msp_value);
+
+  // setting the value of MSP
+  __set_MSP(msp_value);
+
+  // 2. Fetch the reset handler of the user app. existing in flash sector 2
+  uint32_t reset_handler_address =
+      *(volatile uint32_t *)(FLASH_SECTOR2_BASE_ADDRESS + 4);
+  app_reset_handler = (void *)reset_handler_address;
+  printmsg("BL_DEBUG_MSG: app reset handler addr : %#x\n", app_reset_handler);
+
+  // 3. jump to the reset handler of the application
+  app_reset_handler();
+}
+
+/**
+ * @brief Function to listen on the uart port and execute the received commands.
+ * @retval None
+ */
+void bootloader_uart_read_data(void) {}
 
 /**
  * @brief System Clock Configuration
