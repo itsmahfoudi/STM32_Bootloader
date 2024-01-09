@@ -1,6 +1,4 @@
 #include "main.h"
-#include "stm32f4xx_hal.h"
-#include "stm32f4xx_hal_gpio.h"
 #include <stdint.h>
 
 /* Private variables *********************************************/
@@ -29,6 +27,8 @@ static void printmsg(char *format, ...);
 /* USER CODE END PFP */
 /* Private USER code ********************************/
 /* USER CODE BEGIN 0*/
+#define BL_RX_LEN 200
+uint8_t bl_rx_buffer[BL_RX_LEN];
 
 /* USER CODE END 0 */
 
@@ -118,7 +118,53 @@ void bootloader_jump_to_user_app(void) {
  * @brief Function to listen on the uart port and execute the received commands.
  * @retval None
  */
-void bootloader_uart_read_data(void) {}
+void bootloader_uart_read_data(void) {
+  uint8_t rcv_len = 0;
+  while (1) {
+    memset(bl_rx_buffer, 0, 200);
+    HAL_UART_Receive(C_UART, bl_rx_buffer, 1, HAL_MAX_DELAY);
+    rcv_len = bl_rx_buffer[0];
+    HAL_UART_Receive(C_UART, &bl_rx_buffer[1], rcv_len, HAL_MAX_DELAY);
+    switch (bl_rx_buffer[1]) {
+    case BL_GET_VER:
+      bootloader_handle_getver_cmd(bl_rx_buffer);
+      break;
+    case BL_GET_HELP:
+      bootloader_handle_gethelp_cmd(bl_rx_buffer);
+      break;
+    case BL_GET_CID:
+      bootloader_handle_getcid_cmd(bl_rx_buffer);
+      break;
+    case BL_GET_RDP_STATUS:
+      bootloader_handle_getrdp_cmd(bl_rx_buffer);
+      break;
+    case BL_GO_TO_ADDR:
+      bootloader_handle_goto_cmd(bl_rx_buffer);
+      break;
+    case BL_FLASH_ERASE:
+      bootloader_handle_flash_erase_cmd(bl_rx_buffer);
+      break;
+    case BL_MEM_WRITE:
+      bootloader_handle_mem_write_cmd(bl_rx_buffer);
+      break;
+    case BL_ENDIS_RW_PROTECT:
+      bootloader_handle_endis_rw_protect_cmd(bl_rx_buffer);
+      break;
+    case BL_MEM_READ:
+      bootloader_handle_mem_read_cmd(bl_rx_buffer);
+      break;
+    case BL_READ_SECTOR_STATUS:
+      bootloader_handle_read_sector_status_cmd(bl_rx_buffer);
+      break;
+    case BL_OTP_READ:
+      bootloader_handle_read_otp_cmd(bl_rx_buffer);
+      break;
+    default:
+      printmsg("BL_DEBUG_MSG: Invalid Command code received form host!!\n");
+      break;
+    }
+  }
+}
 
 /**
  * @brief System Clock Configuration
@@ -339,3 +385,82 @@ void assert_failed(uint8_t *file, uint32_t line) {
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
+/*
+ * *********************Bootloader commands implementation.******************/
+/**
+ * @brief Helper function to handle the BL_GET_VER Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_getver_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_GET_HELP Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_gethelp_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_GET_CID Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_getcid_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_GET_RDP_STATUS Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_getrdp_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_GO_TO_ADDR Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_goto_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_FLASH_ERASE Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_flash_erase_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_MEM_WRITE Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_mem_write_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_ENDIS_RW_PROTECT Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_endis_rw_protect_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_MEM_READ Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_mem_read_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_READ_SECTOR_STATUS Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_read_sector_status_cmd(uint8_t *buffer) {}
+
+/**
+ * @brief Helper function to handle the BL_OTP_READ Command
+ * @param pointer to the buffer where the opperands of the commad resides.
+ * @retval None
+ */
+void bootloader_handle_read_otp_cmd(uint8_t *buffer) {}
