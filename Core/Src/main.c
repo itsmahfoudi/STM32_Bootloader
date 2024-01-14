@@ -1,5 +1,4 @@
 #include "main.h"
-#include <stdint.h>
 
 /* Private variables *********************************************/
 CRC_HandleTypeDef hcrc;
@@ -165,6 +164,16 @@ void bootloader_uart_read_data(void) {
     }
   }
 }
+
+/**
+ * @brief Function to write on the C_UART.
+ * @retval None
+ */
+void bootloader_uart_write_data(uint8_t *pData, uint8_t len) {
+    HAL_UART_Transmit(C_UART, pData,len, HAL_MAX_DELAY);
+}
+
+
 
 /**
  * @brief System Clock Configuration
@@ -390,77 +399,153 @@ void assert_failed(uint8_t *file, uint32_t line) {
  * *********************Bootloader commands implementation.******************/
 /**
  * @brief Helper function to handle the BL_GET_VER Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_getver_cmd(uint8_t *buffer) {}
+void bootloader_handle_getver_cmd(uint8_t *bl_rx_buffer) {
+    uint8_t bl_version;
+    printmsg("BL_DEBUG_MSG : bootloader_handle_getver_cmd\n");
+    //total length of the command packet
+    uint32_t command_packet_len = bl_rx_buffer[0] + 1;
+
+    //extract the crc32 sent by the host
+    uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len-4));
+    if (! bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len-4, host_crc )) {
+        printmsg("BL_DEBUG_MSG : checksum success !!\n");
+        //Send the acknowledgment to the host.
+        bootloader_send_ack(bl_rx_buffer[0],1);
+        bl_version = get_bootloader_version();
+        printmsg("BL_DEBUG_MSG:BL_VER : %d %#x\n",bl_version, bl_version);
+        //Send the value of the bootloader version to the host.
+        bootloader_uart_write_data(&bl_version,1);
+    } else {
+        printmsg("BL_DEBUG_MSG:checksum fail!!\n");
+        //Send the non acknowledgment to the host.
+        bootloader_send_nack();
+    }
+}
 
 /**
  * @brief Helper function to handle the BL_GET_HELP Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_gethelp_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_GET_CID Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_getcid_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_GET_RDP_STATUS Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_getrdp_cmd(uint8_t *buffer) {}
+void bootloader_handle_getrdp_cmd(uint8_t *buffer) {
+
+}
 
 /**
  * @brief Helper function to handle the BL_GO_TO_ADDR Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_goto_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_FLASH_ERASE Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_flash_erase_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_MEM_WRITE Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_mem_write_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_ENDIS_RW_PROTECT Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_endis_rw_protect_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_MEM_READ Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_mem_read_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_READ_SECTOR_STATUS Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_read_sector_status_cmd(uint8_t *buffer) {}
 
 /**
  * @brief Helper function to handle the BL_OTP_READ Command
- * @param pointer to the buffer where the opperands of the commad resides.
+ * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
 void bootloader_handle_read_otp_cmd(uint8_t *buffer) {}
+
+
+/**
+ * @brief Helper function to send acknowledgment to the host
+ * @param command code.
+ *        length of the items to follow.
+ * @retval None
+ */
+void bootloader_send_ack(uint8_t command_code, uint8_t follow_len) {
+    uint8_t ack_buf[2];
+    ack_buf[0] = BL_ACK;
+    ack_buf[1] = follow_len;
+    HAL_UART_Transmit(C_UART,  ack_buf, 2, HAL_MAX_DELAY);
+}
+
+/**
+ * @brief Helper function to send acknowledgment to the host
+ * @param None
+ * @retval None
+ */
+void bootloader_send_nack(void) {
+    uint8_t nack = BL_NACK;
+    HAL_UART_Transmit(C_UART, &nack, 1, HAL_MAX_DELAY);
+}
+
+
+/**
+ * @brief Helper function to verify the crc value received by the host.
+ * @param0 : pointer to the data to which the crc will be calculated
+ * @param1 : length of data to which the crc will be calculated
+ * @param2 : the value of the crc received by the host.
+ * @retval None
+ */
+uint8_t bootloader_verify_crc(uint8_t* pData, uint32_t len, uint32_t crc_host) {
+    uint32_t uwCRCValue = 0xFF;
+    for (uint32_t i = 0; i < len; i++) {
+        uint32_t i_data = pData[i];
+        uwCRCValue = HAL_CRC_Accumulate(&hcrc,&i_data,1);
+    }
+    if (uwCRCValue == crc_host) {
+        return VERIFY_CRC_SUCCESS;
+    }
+    return VERIFY_CRC_FAIL;
+}
+
+/**
+ * @brief Helper function to send acknowledgment to the host
+ * @param None
+ * @retval unsigned byte containing the version of the bootloader.
+ */
+uint8_t get_bootloader_version(void) {
+    return (uint8_t)BL_VERSION;
+}

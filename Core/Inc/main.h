@@ -77,6 +77,18 @@ extern "C" {
 // This command is used to read OTP contents
 #define BL_OTP_READ 0x5B
 
+/* ACK and NACK Bytes*/
+#define BL_ACK 0xA5
+#define BL_NACK 0x7F
+
+/*
+ * Bootloader version
+ */
+#define BL_VERSION 0x10
+
+/*CRC*/
+#define VERIFY_CRC_FAIL    1
+#define VERIFY_CRC_SUCCESS 0
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -96,6 +108,11 @@ void bootloader_handle_endis_rw_protect_cmd(uint8_t *buffer);
 void bootloader_handle_mem_read_cmd(uint8_t *buffer);
 void bootloader_handle_read_sector_status_cmd(uint8_t *buffer);
 void bootloader_handle_read_otp_cmd(uint8_t *buffer);
+void bootloader_send_ack(uint8_t command_code, uint8_t follow_len);
+void bootloader_send_nack(void);
+void bootloader_uart_write_data(uint8_t *pData, uint8_t len);
+uint8_t bootloader_verify_crc(uint8_t* pData, uint32_t len, uint32_t crc_host);
+uint8_t get_bootloader_version(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
