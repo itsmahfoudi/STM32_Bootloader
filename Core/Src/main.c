@@ -491,7 +491,25 @@ void bootloader_handle_getcid_cmd(uint8_t *buffer) {
  * @retval None
  */
 void bootloader_handle_getrdp_cmd(uint8_t *buffer) {
+	uint8_t rdp_level = 0x00;
+	printmsg("BL_DEBUG_MSG: bootloader_handle_getrdp_cmd\n");
 
+	//Total length of the command packet
+	uint32_t command_packet_len = bl_rx_buffer[0]+1;
+
+	//extract the CRC32 sent by the host
+	uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len - 4));
+
+	if (!bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len-4, host_crc)) {
+		printmsg("BL_DEBUG_MSG: checksum success !!\n");
+		bootloader_send_ack(bl_rx_buffer[0], command_packet_len);
+		rdp_level = get_flash_rdp_level();
+		printmsg("BL_DEBUG_MSG: RDP Level : %d %#x !!!",rdp_level,rdp_level);
+		bootloader_uart_write_data(&rdp_level, 1);
+	} else {
+		printmsg("BL_DEBUG_MSG: checksum fail !!\n");
+		bootloader_send_nack();
+	}
 }
 
 /**
@@ -612,4 +630,16 @@ uint16_t get_mcu_chip_id(void) {
 	uint16_t cid;
 	cid = (uint16_t) (DBGMCU->IDCODE) & (0x0FFF);
 	return cid;
+}
+
+/**
+ * @brief Helper function to get read protection level of flash
+ * @param None
+ * @retval unsigned byte indicating the rdp level.
+ */
+uint8_t get_flash_rdp_level(void) {
+	uint8_t rdp_status = 0;
+	FLASH_OBProgramInitTypeDef ob_handle;
+	HAL_FLASHEx_OBGetConfig(&ob_handle);
+	rdp_status = (uint8_t) ob_handle.RDPLevel;
 }
