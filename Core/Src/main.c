@@ -456,14 +456,34 @@ void bootloader_handle_gethelp_cmd(uint8_t *buffer) {
 	} else {
 		printmsg("BL_DEBUG_MSG: checksum fail !!");
 		bootloader_send_nack();
+  }
 }
-
 /**
  * @brief Helper function to handle the BL_GET_CID Command
  * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_getcid_cmd(uint8_t *buffer) {}
+void bootloader_handle_getcid_cmd(uint8_t *buffer) {
+	uint16_t bl_cid_num = 0;
+	printmsg("BL_DEBUG_MSG: bootloader_handle_getcid_cmd\n");
+
+	//Total length of the command packet
+	uint32_t command_packet_len = bl_rx_buffer[0]+1;
+
+	//extract the CRC32 sent by the host
+	uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len - 4));
+
+	if (!bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len-4, host_crc)) {
+		printmsg("BL_DEBUG_MSG: checksum success !!\n");
+		bootloader_send_ack(bl_rx_buffer[0], command_packet_len);
+		bl_cid_num = get_mcu_chip_id();
+		printmsg("BL_DEBUG_MSG: MCU id : %d %#x !!!",bl_cid_num,bl_cid_num);
+		bootloader_uart_write_data((uint8_t*)&bl_cid_num, 2);
+	} else {
+		printmsg("BL_DEBUG_MSG: checksum fail !!\n");
+		bootloader_send_nack();
+	}
+}
 
 /**
  * @brief Helper function to handle the BL_GET_RDP_STATUS Command
@@ -574,4 +594,22 @@ uint8_t bootloader_verify_crc(uint8_t* pData, uint32_t len, uint32_t crc_host) {
  */
 uint8_t get_bootloader_version(void) {
     return (uint8_t)BL_VERSION;
+}
+
+/**
+ * @brief Helper function to send acknowledgment to the host
+ * @param None
+ * @retval unsigned 2byte containing the chip or device identifier.
+ */
+uint16_t get_mcu_chip_id(void) {
+	/*
+	 * The STM32F446xx MCUs integrate an MCU ID code. This ID identifies the ST MCU PartNumber
+	 * and the die revision. It is part of the DBG_MCU component and is mapped on the
+	 * external PPB bus (see Section 33.16 on page 1304). This code is accessible using the
+	 * JTAG debug pCat.2port (4 to 5 pins) or the SW debug port (two pins) or by the user software.
+	 * it is even accessible while the MCU is under system reset.
+	 */
+	uint16_t cid;
+	cid = (uint16_t) (DBGMCU->IDCODE) & (0x0FFF);
+	return cid;
 }
