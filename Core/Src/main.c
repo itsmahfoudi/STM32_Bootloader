@@ -517,7 +517,50 @@ void bootloader_handle_getrdp_cmd(uint8_t *buffer) {
  * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_goto_cmd(uint8_t *buffer) {}
+void bootloader_handle_goto_cmd(uint8_t *buffer) {
+	uint32_t go_address = 0;
+	uint8_t addr_valid = ADDR_VALID;
+	uint8_t addr_invalid = ADDR_INVALID;
+
+	printmsg("BL_DEBUG_MSG:bootloader_handle_go_cmd\n");
+
+	//Total length of the command packet
+	uint32_t command_packet_len = bl_rx_buffer[0]+1;
+
+	//extract the CRC32 sent by the host
+	uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len - 4));
+
+	if (!bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len-4, host_crc)) {
+		printmsg("BL_DEBUG_MSG: checksum success !!\n");
+		bootloader_send_ack(bl_rx_buffer[0], 1);
+		go_address = *((uint32_t*)&bl_rx_buffer[2]);
+		printmsg("BL_DEBUG_MSG: GO Addr : %#x !!!",go_address);
+		if (verify_address(go_address) == ADDR_VALID) {
+			//Confirm to the host.
+			bootloader_uart_write_data(&addr_valid, 1);
+
+			/*
+			 * Jump to "go_address".
+			 * Host must ensure that the valid code is present at
+			 * the specified address, It's not the duty of
+			 * bootloader.
+			 */
+
+			go_address += 1;
+			void(*lets_jump)(void) = (void*)go_address;
+
+			printmsg("BL_DEBUG_MSG: Jumping to go address! \n");
+
+			lets_jump();
+		} else {
+			printmsg("BL_DEBUG_MSG: Go address invalid!!!\n");
+			bootloader_uart_write_data(&addr_invalid, 1);
+		}
+	} else {
+		printmsg("BL_DEBUG_MSG: checksum fail !!\n");
+		bootloader_send_nack();
+	}
+}
 
 /**
  * @brief Helper function to handle the BL_FLASH_ERASE Command

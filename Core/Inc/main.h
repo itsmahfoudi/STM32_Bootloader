@@ -89,6 +89,25 @@ extern "C" {
 /*CRC*/
 #define VERIFY_CRC_FAIL    1
 #define VERIFY_CRC_SUCCESS 0
+
+/*ADDRESS VALIDY*/
+#define ADDR_VALID 0x00
+#define ADDR_INVALID 0x01
+
+/*
+ * Some Start and end addresses of different memories inside the
+ * STM32F446xx
+ */
+#define SRAM1_SIZE			112*1024 //112 KB
+#define SRAM1_END			(SRAM1_BASE + SRAM1_SIZE)
+#define SRAM2_SIZE			16*1024 // 16KB
+#define SRAM2_END			(SRAM2_BASE + SRAM2_SIZE)
+#define FLASH_SIZE			512*1024 // 512KB
+#define BACKUP_SRAM_BASE	BKPSRAM_BASE
+#define BACKUP_SRAM_SIZE	4*1024
+#define BACKUP_SRAM_END		(BACKUP_SRAM_BASE + BACKUP_SRAM_SIZE)
+
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -115,6 +134,7 @@ uint8_t bootloader_verify_crc(uint8_t* pData, uint32_t len, uint32_t crc_host);
 uint8_t get_bootloader_version(void);
 uint16_t get_mcu_chip_id(void);
 uint8_t get_flash_rdp_level(void);
+uint8_t verify_address(uint32_t go_address);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
