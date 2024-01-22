@@ -94,6 +94,8 @@ extern "C" {
 #define ADDR_VALID 0x00
 #define ADDR_INVALID 0x01
 
+#define INVALID_SECTOR  0x04
+
 /*
  * Some Start and end addresses of different memories inside the
  * STM32F446xx
@@ -135,6 +137,7 @@ uint8_t get_bootloader_version(void);
 uint16_t get_mcu_chip_id(void);
 uint8_t get_flash_rdp_level(void);
 uint8_t verify_address(uint32_t go_address);
+uint8_t execute_flash_erase(uint8_t sector_number, uint8_t number_of_sector);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
