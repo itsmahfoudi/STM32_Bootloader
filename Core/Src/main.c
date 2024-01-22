@@ -156,8 +156,11 @@ void bootloader_uart_read_data(void) {
     case BL_MEM_WRITE:
       bootloader_handle_mem_write_cmd(bl_rx_buffer);
       break;
-    case BL_ENDIS_RW_PROTECT:
-      bootloader_handle_endis_rw_protect_cmd(bl_rx_buffer);
+    case BL_EN_RW_PROTECT:
+      bootloader_handle_en_rw_protect_cmd(bl_rx_buffer);
+      break;
+    case BL_DIS_RW_PROTECT:
+      bootloader_handle_dis_rw_protect_cmd(bl_rx_buffer);
       break;
     case BL_MEM_READ:
       bootloader_handle_mem_read_cmd(bl_rx_buffer);
@@ -651,7 +654,59 @@ void bootloader_handle_mem_write_cmd(uint8_t *buffer) {
  * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_endis_rw_protect_cmd(uint8_t *buffer) {}
+void bootloader_handle_en_rw_protect_cmd(uint8_t *buffer) {
+	uint8_t status = 0x00;
+	printmsg("BL_DEBUG_MSG:bootloader_hanlde_en_rw_protect_cmd");
+
+	//Total length of command packet
+	uint32_t command_packet_len = bl_rx_buffer[0]+1;
+
+	//extract the CRC32 sent by the host
+	uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len - 4 ));
+
+	if (!bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len, host_crc)) {
+		printmsg("BL_DEBUG_MSG:checksum success!!");
+		bootloader_send_ack(bl_rx_buffer[0],1);
+
+		status = configure_flash_sector_rw_protection(bl_rx_buffer[2],bl_rx_buffer[3],0);
+		printmsg("BL_DEBUG_MSG: rw Protection enable status %#x\n",status);
+		bootloader_uart_write_data(&status, 1);
+	} else {
+		printmsg("BL_DEBUG_MSG:checksum fail !!\n");
+		bootloader_send_nack();
+	}
+}
+
+/**
+ * @brief Helper function to handle the BL_DIS_RW_PROTECT Command
+ * @param pointer to the buffer where the operands of the command resides.
+ * @retval None
+ */
+void bootloader_handle_dis_rw_protect_cmd(uint8_t *buffer) {
+	uint8_t status = 0x00;
+	printmsg("BL_DEBUG_MSG:bootloader_hanlde_dis_rw_protect_cmd");
+
+	//Total length of command packet
+	uint32_t command_packet_len = bl_rx_buffer[0]+1;
+
+	//extract the CRC32 sent by the host
+	uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len - 4 ));
+
+	if (!bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len, host_crc)) {
+		printmsg("BL_DEBUG_MSG:checksum success!!");
+		bootloader_send_ack(bl_rx_buffer[0],1);
+
+		status = configure_flash_sector_rw_protection(bl_rx_buffer[2],bl_rx_buffer[3],1);
+		printmsg("BL_DEBUG_MSG: rw Protection disable status %#x\n",status);
+		bootloader_uart_write_data(&status, 1);
+	} else {
+		printmsg("BL_DEBUG_MSG:checksum fail !!\n");
+		bootloader_send_nack();
+	}
+}
+
+
+
 
 /**
  * @brief Helper function to handle the BL_MEM_READ Command
@@ -817,4 +872,108 @@ uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len) 
 	HAL_FLASH_Lock();
 
 	return status;
+}
+
+/**
+ * @brief Helper function to configure the rw protection rights on sectors
+ * @param[1] pointer to the buffer where the binary code resides
+ * @param[2] The memory address at which the code has to be written
+ * @param[3] the length of the data to be written
+ * @retval unsigned byte indicating the status of the configuration operation.
+ */
+/*
+Modifying user option bytes
+To modify the user option value, follow the sequence below:
+1. Check that no Flash memory operation is ongoing by checking the BSY bit in the
+FLASH_SR register
+2. Write the desired option value in the FLASH_OPTCR register.
+3. Set the option start bit (OPTSTRT) in the FLASH_OPTCR register
+4. Wait for the BSY bit to be cleared.
+*/
+
+uint8_t configure_flash_sector_rw_protection(uint8_t sector_details, uint8_t protection_mode, uint8_t disable) {
+    //First configure the protection mode
+    //protection_mode =1 , means write protect of the user flash sectors
+    //protection_mode =2, means read/write protect of the user flash sectors
+    //According to RM of stm32f446xx TABLE 9, We have to modify the address 0x1FFF C008 bit 15(SPRMOD)
+	volatile uint32_t* pOPTCR = (uint32_t*) FLASH_OPTCR_Reg_BASE_ADDR;
+	if (disable) {
+		//disable all r/w protection on sectors
+
+		//option byte configuration unlock
+		HAL_FLASH_OB_Unlock();
+
+		//wait till no active operation on flash
+		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET);
+
+		//clear the 31st bit (default state)
+		//please refer : Flash option control register(FLASH_OPTCR) in RM
+
+		*pOPTCR &= ~(1 << 31);
+
+		//clear the protection : make all bits belonging to sectors as 1
+		*pOPTCR |= (0xFF << 16);
+
+		//set the option start bit (OPTSTART) in the FLASH_OPTCR register
+		*pOPTCR |= (1 << 1);
+
+		//wait until no active operation on flahs
+		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET);
+
+		HAL_FLASH_OB_Lock();
+
+		return HAL_OK;
+	}
+	if (protection_mode == (uint8_t)1) {
+		//we are putting write protection on the sectors encoded in sector_details argument
+
+		//Option byte configuration unlock
+		HAL_FLASH_OB_Unlock();
+
+		//wait until no active operation on flash
+		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET);
+
+		//here we are setting just write protection for the sectors
+		//clear the 31st bit
+		//please refer : Flash option control register (FLASH_OPTCR) in RM
+
+		*pOPTCR &= ~(1 << 31);
+
+		//put write protection on sectors
+		*pOPTCR &= ~(sector_details << 16);
+
+		//set the option start bit (OPTSTART) in the FLASH_OPTCR register
+		*pOPTCR |= (1 << 1);
+
+		//wait until no active operation on flash
+		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET);
+
+		HAL_FLASH_OB_Lock();
+	} else if (protection_mode == (uint8_t)2) {
+		//Option byte configuration unlock
+		HAL_FLASH_OB_Unlock();
+
+		//wait until no active operation on flash
+		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET);
+
+		//here wer are setting read and write protection for the sectors
+		//set the 31st bit
+		//please refer : Flash option control register (FLASH_OPTCR) in RM
+		*pOPTCR |= (1 << 31);
+
+		//put read and write protection on sectors
+		*pOPTCR &= ~(0xFF << 16);
+		*pOPTCR |= (sector_details << 16);
+
+		//set the option start bit (OPTSTART) in the FLASH_OPTCR register
+		*pOPTCR |= (1 << 1);
+
+		//wait until no active operation on flash
+		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET);
+
+		HAL_FLASH_OB_Lock();
+	} else {
+		return HAL_ERROR;
+	}
+	return HAL_OK;
 }

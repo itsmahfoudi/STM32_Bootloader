@@ -69,13 +69,15 @@ extern "C" {
 // This command is used to write data in the specified MCU memory.
 #define BL_MEM_WRITE 0x57
 // This command is used to control read/write protection on different sections
-#define BL_ENDIS_RW_PROTECT 0x58
+#define BL_EN_RW_PROTECT 0x58
 // This command is used to read data from specified MCU memory
 #define BL_MEM_READ 0x59
 // This command is used to read all the sector protection status
 #define BL_READ_SECTOR_STATUS 0x5A
 // This command is used to read OTP contents
 #define BL_OTP_READ 0x5B
+//This command is used disable all sector read/write protection
+#define BL_DIS_RW_PROTECT			0x5C
 
 /* ACK and NACK Bytes*/
 #define BL_ACK 0xA5
@@ -125,7 +127,8 @@ void bootloader_handle_getrdp_cmd(uint8_t *buffer);
 void bootloader_handle_goto_cmd(uint8_t *buffer);
 void bootloader_handle_flash_erase_cmd(uint8_t *buffer);
 void bootloader_handle_mem_write_cmd(uint8_t *buffer);
-void bootloader_handle_endis_rw_protect_cmd(uint8_t *buffer);
+void bootloader_handle_en_rw_protect_cmd(uint8_t *buffer);
+void bootloader_handle_dis_rw_protect_cmd(uint8_t *buffer);
 void bootloader_handle_mem_read_cmd(uint8_t *buffer);
 void bootloader_handle_read_sector_status_cmd(uint8_t *buffer);
 void bootloader_handle_read_otp_cmd(uint8_t *buffer);
@@ -139,6 +142,7 @@ uint8_t get_flash_rdp_level(void);
 uint8_t verify_address(uint32_t go_address);
 uint8_t execute_flash_erase(uint8_t sector_number, uint8_t number_of_sector);
 uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len);
+uint8_t configure_flash_sector_rw_protection(uint8_t sector_details, uint8_t protection_mode, uint8_t disable);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
