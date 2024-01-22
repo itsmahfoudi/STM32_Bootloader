@@ -16,7 +16,6 @@ In this project i've used the ST-Link DEBUGGER and Programmer attached to the bo
 | BL_GO_TO_ADDR         | 0x55         | Success or Error code (1 byte)              | This command is used to jump the bootloader to the specified address.        |
 | BL_FLASH_ERASE        | 0x56         | Success or Error Code (1 byte)              | This command is used to erase sectors of the user flash.                     |
 | BL_MEM_WRITE          | 0x57         | Success or Error Code (1 byte)              | This command is used to write data to the specified MCU memory.              |
-| BL_ENDIS_RW_PROTECT   | 0x58         | Success or Error Code (1 byte)              | This command is used to control read/write protection on different sections. |
-| BL_MEM_READ           | 0x59         | Memory contents of length asked by the host | This command is used to read data from the specified MCU memory.             |
+| BL_EN_RW_PROTECT      | 0x58         | Success or Error Code (1 byte)              | This command is used to enable read/write protection on different sections.  |
+| BL_DIS_RW_PROTECT     | 0x5C         |  Success or Error Code (1 byte)             | This command is used to disable read/write protection on different sections. |
 | BL_READ_SECTOR_STATUS | 0x5A         | All sectors status (2 bytes)                | This command is used to read all the sector protection status.               |
-| BL_OTP_READ           | 0x5B         | OTP contents                                | This command is used to read OTP contents.                                   |
