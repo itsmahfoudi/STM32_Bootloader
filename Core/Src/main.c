@@ -600,7 +600,51 @@ void bootloader_handle_flash_erase_cmd(uint8_t *buffer) {
  * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_mem_write_cmd(uint8_t *buffer) {}
+void bootloader_handle_mem_write_cmd(uint8_t *buffer) {
+	//uint8_t addr_valid = ADDR_VALID;
+	//uint8_t len;
+	//len = bl_rx_buffer[0];
+	//checksum = bl_rx_buffer[len];
+	uint8_t write_status = 0x00;
+	uint8_t payload_len = bl_rx_buffer[6];
+	uint32_t mem_address = *((uint32_t*) (&bl_rx_buffer[2]));
+	printmsg("BL_DEBUG_MSG: bootloader_handle_mem_write_cmd\n");
+
+	//Total length of the command packet
+	uint32_t command_packet_len = bl_rx_buffer[0] + 1;
+
+	//extract the crc32 sent bu the host
+	uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len - 4));
+
+	if (! bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len, host_crc)) {
+    printmsg("BL_DEBUG_MSG:checksum success !!\n");
+    bootloader_send_ack(bl_rx_buffer[0],1);
+    printmsg("BL_DEBUG_MSG: mem write address : %#x\n",mem_address);
+    if (verify_address(mem_address) == ADDR_VALID) {
+    printmsg("BL_DEBUG_MSG:valid meme write address\n");
+
+    //Glow the led to indicate the bootloder is currently writing to memory
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+    //execute mem write
+    write_status = execute_mem_write(&bl_rx_buffer[7],mem_address,payload_len);
+
+    //turn off the led to indicate memory write is over
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
+    //inform host about the status
+    bootloader_uart_write_data(&write_status,1);
+
+    } else {
+      printmsg("BL_DEBUG_MSG: Invalid mem write address\n");
+      write_status = ADDR_INVALID;
+      bootloader_uart_write_data(&write_status, 1);
+    }
+	} else {
+    printmsg("BL_DEBUG_MSG:checksum fail !!\n");
+    bootloader_send_nack();
+	}
+}
 
 /**
  * @brief Helper function to handle the BL_ENDIS_RW_PROTECT Command
@@ -750,4 +794,27 @@ uint8_t execute_flash_erase(uint8_t sector_number, uint8_t number_of_sector) {
 	}
 	return INVALID_SECTOR;
 
+}
+
+/**
+ * @brief Helper function to write the content of a buffer in the flash
+ * @param[1] pointer to the buffer where the binary code resides
+ * @param[2] The memory address at which the code has to be written
+ * @param[3] the length of the data to be written
+ * @retval unsigned byte indicating the status of the write operation.
+ */
+
+uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len) {
+	// Check for the validity of the memory address
+	if (mem_address < FLASH_SECTOR2_BASE_ADDRESS || mem_address > FLASH_END) {
+		return HAL_ERROR;
+	}
+	uint8_t status = HAL_OK;
+	HAL_FLASH_Unlock();
+	for (uint32_t i = 0 ; i < len ; i++) {
+		status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, mem_address + i, pBuffer[i]);
+	}
+	HAL_FLASH_Lock();
+
+	return status;
 }
