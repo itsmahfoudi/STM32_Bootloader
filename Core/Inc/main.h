@@ -143,6 +143,7 @@ uint8_t verify_address(uint32_t go_address);
 uint8_t execute_flash_erase(uint8_t sector_number, uint8_t number_of_sector);
 uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len);
 uint8_t configure_flash_sector_rw_protection(uint8_t sector_details, uint8_t protection_mode, uint8_t disable);
+uint16_t read_OB_rw_protection_status(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

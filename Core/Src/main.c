@@ -706,21 +706,41 @@ void bootloader_handle_dis_rw_protect_cmd(uint8_t *buffer) {
 }
 
 
-
-
 /**
  * @brief Helper function to handle the BL_MEM_READ Command
  * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_mem_read_cmd(uint8_t *buffer) {}
+void bootloader_handle_mem_read_cmd(uint8_t *buffer) {
+}
 
 /**
  * @brief Helper function to handle the BL_READ_SECTOR_STATUS Command
  * @param pointer to the buffer where the operands of the command resides.
  * @retval None
  */
-void bootloader_handle_read_sector_status_cmd(uint8_t *buffer) {}
+void bootloader_handle_read_sector_status_cmd(uint8_t *buffer) {
+	uint8_t status = 0x00;
+	printmsg("BL_DEBUG_MSG:bootloader_handle_read_sector_status_cmd");
+
+	//Total length of command packet
+	uint32_t command_packet_len = bl_rx_buffer[0]+1;
+
+	//extract the CRC32 sent by the host
+	uint32_t host_crc = *((uint32_t*) (bl_rx_buffer + command_packet_len - 4 ));
+
+	if (!bootloader_verify_crc(&bl_rx_buffer[0], command_packet_len, host_crc)) {
+		printmsg("BL_DEBUG_MSG:checksum success!!");
+		bootloader_send_ack(bl_rx_buffer[0],2);
+		status = read_OB_rw_protection_status();
+		printmsg("BL_DEBUG_MSG: nWRP status %#x\n",status);
+		bootloader_uart_write_data((uint8_t*)&status, 2);
+	} else {
+		printmsg("BL_DEBUG_MSG:checksum fail !!\n");
+		bootloader_send_nack();
+	}
+
+}
 
 /**
  * @brief Helper function to handle the BL_OTP_READ Command
@@ -976,4 +996,27 @@ uint8_t configure_flash_sector_rw_protection(uint8_t sector_details, uint8_t pro
 		return HAL_ERROR;
 	}
 	return HAL_OK;
+}
+
+
+/**
+ * @brief Helper function to get r/w protection status of flash sectors. 
+ * @param None
+ * @retval unsigned byte indicating the status of the configuration operation.
+ */
+uint16_t read_OB_rw_protection_status(void) {
+	//This structure is given by ST Flash driver to hold the OB(Option Byte) contents
+	FLASH_OBProgramInitTypeDef OBInit;
+
+	//First unlock the OB (Option Byte) memory access
+	HAL_FLASH_OB_Unlock();
+
+	//get the OB configuration details
+	HAL_FLASHEx_OBGetConfig(&OBInit);
+
+	//Lock back
+	HAL_FLASH_Lock();
+
+	//returning the r/w protection status of the sectors
+	return (uint16_t)OBInit.WRPSector;
 }
